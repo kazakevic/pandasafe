@@ -1,6 +1,9 @@
 /* Hide every Shorts surface on www.youtube.com. Selectors target YouTube's
-   structural attributes and /shorts/ links rather than localized text. */
+   structural attributes and /shorts/ links rather than localized text.
+   Everything is scoped to html without data-pandasafe-shorts="off", which the
+   content script sets when Shorts blocking is turned off in the popup. */
 
+html:not([data-pandasafe-shorts="off"]) :is(
 /* Left sidebar (full and mini guide) */
 ytd-guide-entry-renderer:has(a[href^="/shorts"]),
 ytd-guide-entry-renderer:has(a#endpoint[title="Shorts"]),
@@ -29,6 +32,10 @@ yt-lockup-view-model:has(a[href^="/shorts/"]),
 
 /* "Shorts" tab on channel pages */
 yt-tab-shape[tab-title="Shorts"],
-tp-yt-paper-tab:has(a[href$="/shorts"]) {
+tp-yt-paper-tab:has(a[href$="/shorts"]),
+
+/* Channel "Shorts" tab and search "Shorts" chip, matched by label in JS */
+[data-pandasafe-shorts-label]
+) {
   display: none !important;
 }
