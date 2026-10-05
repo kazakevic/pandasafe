@@ -1,0 +1,34 @@
+/* Hide every Shorts surface on www.youtube.com. Selectors target YouTube's
+   structural attributes and /shorts/ links rather than localized text. */
+
+/* Left sidebar (full and mini guide) */
+ytd-guide-entry-renderer:has(a[href^="/shorts"]),
+ytd-guide-entry-renderer:has(a#endpoint[title="Shorts"]),
+ytd-mini-guide-entry-renderer:has(a[href^="/shorts"]),
+ytd-mini-guide-entry-renderer[aria-label="Shorts"],
+
+/* Shorts shelves on home, subscriptions, search, watch-next */
+ytd-rich-section-renderer:has(ytd-rich-shelf-renderer[is-shorts]),
+ytd-rich-section-renderer:has(ytm-shorts-lockup-view-model),
+ytd-rich-shelf-renderer[is-shorts],
+ytd-reel-shelf-renderer,
+grid-shelf-view-model:has(ytm-shorts-lockup-view-model),
+yt-horizontal-list-renderer:has(ytm-shorts-lockup-view-model),
+ytd-item-section-renderer:has(> #contents > ytd-reel-shelf-renderer:only-child),
+
+/* Individual Shorts mixed into regular feeds and lists */
+ytm-shorts-lockup-view-model,
+ytm-shorts-lockup-view-model-v2,
+ytd-reel-item-renderer,
+ytd-rich-item-renderer:has(a[href^="/shorts/"]),
+ytd-video-renderer:has(a[href^="/shorts/"]),
+ytd-grid-video-renderer:has(a[href^="/shorts/"]),
+ytd-compact-video-renderer:has(a[href^="/shorts/"]),
+ytd-playlist-video-renderer:has(a[href^="/shorts/"]),
+yt-lockup-view-model:has(a[href^="/shorts/"]),
+
+/* "Shorts" tab on channel pages */
+yt-tab-shape[tab-title="Shorts"],
+tp-yt-paper-tab:has(a[href$="/shorts"]) {
+  display: none !important;
+}

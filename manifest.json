@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "PandaSafe",
+  "version": "0.1.0",
+  "description": "Blocks YouTube Shorts.",
+  "permissions": ["declarativeNetRequest"],
+  "host_permissions": ["https://www.youtube.com/*"],
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "block_shorts",
+        "enabled": true,
+        "path": "src/rules.json"
+      }
+    ]
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.youtube.com/*"],
+      "css": ["src/youtube-shorts.css"],
+      "js": ["src/youtube-shorts.js"],
+      "run_at": "document_start"
+    }
+  ]
+}
