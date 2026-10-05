@@ -23,6 +23,10 @@ Settings live in `chrome.storage.local`: `{ blockShorts: boolean, blockedChannel
 - After any change, click reload on the extension card, then refresh YouTube. Changes to `rules.json` need the extension reload; a page refresh alone won't pick them up.
 - Chrome writes `_metadata/` into the repo when loading unpacked. It's gitignored; don't commit it.
 
+## Git
+
+- Work and commit directly on `main`. Don't create feature branches or PRs.
+
 ## Conventions
 
 - Prefer structural selectors (tag names, attributes like `is-shorts`, `a[href^="/shorts/"]`) over visible text, since text is localized. Text matching is the last resort and lives in the JS `hideLabelled` fallback.
