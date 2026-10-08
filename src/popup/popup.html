@@ -10,7 +10,7 @@
       <img class="logo" src="../../icons/icon-128.png" alt="" width="36" height="36" />
       <div>
         <h1>PandaSafe</h1>
-        <p class="tagline">Calmer YouTube, your rules</p>
+        <p class="tagline">Calmer browsing, your rules</p>
       </div>
     </header>
 
@@ -52,6 +52,35 @@
         <ul class="channels" id="channel-list"></ul>
         <p class="empty" id="empty">No channels blocked yet.</p>
       </section>
+
+      <section class="card">
+        <div class="section-head">
+          <h2>Blocked websites</h2>
+          <span class="count" id="site-count">0</span>
+        </div>
+        <p class="setting-hint">They won't open, including www. and other subdomains.</p>
+
+        <button type="button" class="suggestion" id="block-site" hidden>
+          <span class="suggestion-label">Block this site</span>
+          <span class="suggestion-name" id="block-site-name"></span>
+        </button>
+
+        <form class="add" id="site-form" autocomplete="off">
+          <input
+            type="text"
+            id="site-input"
+            placeholder="example.com or any link"
+            aria-label="Website domain or link"
+            spellcheck="false"
+            autocapitalize="off"
+          />
+          <button type="submit">Block</button>
+        </form>
+        <p class="status" id="site-status" role="status" aria-live="polite"></p>
+
+        <ul class="channels" id="site-list"></ul>
+        <p class="empty" id="site-empty">No websites blocked yet.</p>
+      </section>
     </main>
 
     <template id="channel-item">
@@ -60,6 +89,20 @@
         <span class="channel-text">
           <span class="channel-name"></span>
           <span class="channel-handle"></span>
+        </span>
+        <button type="button" class="remove" title="Unblock">
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+            <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+          </svg>
+        </button>
+      </li>
+    </template>
+
+    <template id="site-item">
+      <li class="channel">
+        <span class="avatar favicon" aria-hidden="true"><img alt="" /></span>
+        <span class="channel-text">
+          <span class="channel-name"></span>
         </span>
         <button type="button" class="remove" title="Unblock">
           <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">

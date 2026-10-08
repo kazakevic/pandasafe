@@ -134,11 +134,14 @@ chrome.storage.onChanged.addListener((changes, area) => {
     render();
   }
   if (changes.blockShorts) shortsToggle.checked = changes.blockShorts.newValue ?? true;
+  if (changes.blockedSites) {
+    sites = changes.blockedSites.newValue ?? [];
+    renderSites();
+  }
 });
 
 // Ask the YouTube tab which channel it's showing, for the one-click button.
-const loadCurrentChannel = async () => {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+const loadCurrentChannel = async (tab) => {
   if (!tab?.url?.startsWith("https://www.youtube.com/")) return;
   try {
     currentChannel = await chrome.tabs.sendMessage(tab.id, { type: "pandasafe:current-channel" });
@@ -150,9 +153,136 @@ const loadCurrentChannel = async () => {
   render();
 };
 
-getSettings().then((settings) => {
+// --- Blocked websites ---
+
+const siteForm = $("site-form");
+const siteInput = $("site-input");
+const siteStatus = $("site-status");
+const siteList = $("site-list");
+const siteEmpty = $("site-empty");
+const siteCount = $("site-count");
+const blockSite = $("block-site");
+const siteTemplate = $("site-item");
+
+let sites = [];
+let currentSite = null;
+
+const setSiteStatus = (text, isError = false) => {
+  siteStatus.textContent = text;
+  siteStatus.classList.toggle("error", isError);
+};
+
+// Chrome's own favicon cache, so the blocked list isn't sent anywhere.
+const faviconUrl = (site) => {
+  const url = new URL(chrome.runtime.getURL("/_favicon/"));
+  url.searchParams.set("pageUrl", `https://${site}/`);
+  url.searchParams.set("size", "32");
+  return url.href;
+};
+
+const renderSites = () => {
+  siteList.replaceChildren(
+    ...sites.map((site) => {
+      const item = siteTemplate.content.firstElementChild.cloneNode(true);
+      item.querySelector(".favicon img").src = faviconUrl(site);
+      item.querySelector(".channel-name").textContent = site;
+      const remove = item.querySelector(".remove");
+      remove.setAttribute("aria-label", `Unblock ${site}`);
+      remove.addEventListener("click", () => removeSite(site));
+      return item;
+    }),
+  );
+  siteEmpty.hidden = sites.length > 0;
+  siteCount.textContent = sites.length;
+
+  const showSuggestion = currentSite && !siteMatch(currentSite, sites);
+  blockSite.hidden = !showSuggestion;
+  if (showSuggestion) $("block-site-name").textContent = currentSite;
+};
+
+const listText = (items) => items.join(", ");
+
+// Adds each site unless an entry already covers it. A new parent domain
+// replaces the subdomains it now covers. Returns false if nothing was added.
+const addSites = async (entries) => {
+  const { blockedSites } = await getSettings();
+  let next = blockedSites;
+  const added = [];
+  const covered = [];
+  for (const site of entries) {
+    const by = siteMatch(site, next);
+    if (by) {
+      covered.push(by === site ? site : `${site} (via ${by})`);
+      continue;
+    }
+    next = [site, ...next.filter((entry) => !siteMatch(entry, [site]))];
+    added.push(site);
+  }
+  if (added.length) await chrome.storage.local.set({ blockedSites: next });
+
+  const messages = [];
+  if (added.length) messages.push(`Blocked ${listText(added)}.`);
+  if (covered.length) messages.push(`Already blocked: ${listText(covered)}.`);
+  setSiteStatus(messages.join(" "));
+  return added.length > 0;
+};
+
+const removeSite = async (site) => {
+  const { blockedSites } = await getSettings();
+  await chrome.storage.local.set({ blockedSites: blockedSites.filter((entry) => entry !== site) });
+  setSiteStatus(`Unblocked ${site}.`);
+};
+
+// Several sites can be pasted at once, separated by spaces, commas or lines.
+const parseSiteInput = (text) => {
+  const entries = text.split(/[\s,;]+/).filter(Boolean);
+  const valid = [];
+  const invalid = [];
+  for (const entry of entries) {
+    const site = parseSite(entry);
+    if (site) valid.includes(site) || valid.push(site);
+    else invalid.push(entry);
+  }
+  return { valid, invalid };
+};
+
+siteForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const { valid, invalid } = parseSiteInput(siteInput.value);
+  if (valid.length) await addSites(valid);
+  if (invalid.length) {
+    siteInput.value = invalid.join(" ");
+    const prefix = valid.length ? `${siteStatus.textContent} ` : "";
+    setSiteStatus(`${prefix}Couldn't read ${listText(invalid)}. Enter a domain like example.com.`, true);
+  } else if (valid.length) {
+    siteInput.value = "";
+  } else {
+    setSiteStatus("Enter a domain like example.com or paste a link.", true);
+  }
+  siteInput.focus();
+});
+
+// Preview what will be blocked, so "https://www.x.com/page" visibly becomes x.com.
+siteInput.addEventListener("input", () => {
+  const { valid, invalid } = parseSiteInput(siteInput.value);
+  setSiteStatus(valid.length && !invalid.length ? `Will block ${listText(valid)} and subdomains.` : "");
+});
+
+blockSite.addEventListener("click", () => addSites([currentSite]));
+
+const loadCurrentSite = (tab) => {
+  if (!/^https?:/.test(tab?.url ?? "")) return;
+  currentSite = parseSite(tab.url);
+  renderSites();
+};
+
+getSettings().then(async (settings) => {
   shortsToggle.checked = settings.blockShorts;
   channels = settings.blockedChannels;
+  sites = settings.blockedSites;
   render();
-  loadCurrentChannel();
+  renderSites();
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  loadCurrentSite(tab);
+  loadCurrentChannel(tab);
 });

@@ -4,7 +4,8 @@
 const HOME_URL = "https://www.youtube.com/";
 
 // blockedChannels: [{ handle: "@Name", name?: "Display name" }]
-const DEFAULT_SETTINGS = { blockShorts: true, blockedChannels: [] };
+// blockedSites: ["example.com"], each one also covering its subdomains.
+const DEFAULT_SETTINGS = { blockShorts: true, blockedChannels: [], blockedSites: [] };
 
 const getSettings = () => chrome.storage.local.get(DEFAULT_SETTINGS);
 
@@ -42,3 +43,24 @@ const handlePathForms = (handle) => {
   const name = handle.slice(1);
   return [...new Set([`/@${name}`, `/@${encodeURIComponent(name)}`])];
 };
+
+// "https://www.Example.com/page", "www.example.com", "*.example.com" or
+// "example.com" -> "example.com". Null if the input has no usable host name.
+// "www." is dropped: blocking a site covers all its subdomains anyway.
+const parseSite = (input) => {
+  let text = String(input ?? "").trim().replace(/^\*\./, "");
+  if (!text) return null;
+  if (!/^[a-z][a-z\d+.-]*:\/\//i.test(text)) text = `http://${text}`;
+  let host;
+  try {
+    host = new URL(text).hostname; // lowercased, internationalized names punycoded
+  } catch {
+    return null;
+  }
+  host = host.replace(/\.$/, "").replace(/^www\./, "");
+  return /^(?:[a-z\d](?:[a-z\d-]*[a-z\d])?\.)+(?:[a-z]{2,63}|xn--[a-z\d-]+)$/.test(host) ? host : null;
+};
+
+// The entry in `sites` that blocks `host` (the site itself or a parent
+// domain of it), or undefined.
+const siteMatch = (host, sites) => sites.find((site) => host === site || host.endsWith(`.${site}`));
