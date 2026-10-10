@@ -25,6 +25,7 @@ const applyShortsSetting = (value) => {
   if (value) delete document.documentElement.dataset.pandasafeShorts;
   else document.documentElement.dataset.pandasafeShorts = "off";
   if (isShortsUrl(location.href)) leaveShorts();
+  if (value) markLabelled();
 };
 
 if (isShortsUrl(location.href)) leaveShorts();
@@ -69,8 +70,10 @@ const markLabelled = () => {
   }
 };
 let shortsScheduled = false;
+// Nothing to mark while blocking is off: the CSS ignores the marks then, and
+// applyShortsSetting re-marks when it's turned back on.
 new MutationObserver(() => {
-  if (shortsScheduled) return;
+  if (shortsScheduled || !blockShorts) return;
   shortsScheduled = true;
   requestAnimationFrame(() => {
     shortsScheduled = false;

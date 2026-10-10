@@ -22,7 +22,10 @@ const CHANNEL_ITEMS = [
 ].join(", ");
 
 // Recommendation items that carry the channel name but no channel link.
-const NAME_ONLY_ITEMS = "yt-lockup-view-model, ytd-compact-video-renderer";
+// They only appear in the watch page's "up next" list, so scanning just that
+// keeps the pass cheap on long home and search feeds.
+const NAME_ONLY_ITEMS =
+  "ytd-watch-next-secondary-results-renderer :is(yt-lockup-view-model, ytd-compact-video-renderer)";
 const ITEM_CHANNEL_NAME = ".ytContentMetadataViewModelMetadataRow, ytd-channel-name #text";
 
 let blockedChannels = [];
