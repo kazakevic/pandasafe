@@ -21,7 +21,7 @@
   "background": {
     "service_worker": "src/background.js"
   },
-  "permissions": ["declarativeNetRequest", "storage", "favicon"],
+  "permissions": ["declarativeNetRequest", "storage", "favicon", "alarms"],
   "host_permissions": ["<all_urls>"],
   "declarative_net_request": {
     "rule_resources": [

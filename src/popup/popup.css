@@ -339,3 +339,86 @@ input:focus-visible {
   color: var(--muted);
   text-align: center;
 }
+
+.tag {
+  flex: none;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.tag[hidden],
+.link[hidden] {
+  display: none;
+}
+
+.link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.link:hover {
+  text-decoration: underline;
+}
+
+.link:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.link.danger {
+  color: var(--danger);
+}
+
+.secret {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  display: flex;
+}
+
+.add .secret input {
+  padding-right: 34px;
+}
+
+.add .reveal {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transform: translateY(-50%);
+}
+
+.add .reveal:hover {
+  color: var(--text);
+}
+
+.reveal[aria-pressed="true"] .reveal-slash {
+  display: none;
+}
+
+/* Base URL on its own row, then key + Save. */
+.add.api-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.api-form #api-base {
+  grid-column: 1 / -1;
+}

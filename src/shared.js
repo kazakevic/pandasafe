@@ -5,7 +5,40 @@ const HOME_URL = "https://www.youtube.com/";
 
 // blockedChannels: [{ handle: "@Name", name?: "Display name" }]
 // blockedSites: ["example.com"], each one also covering its subdomains.
-const DEFAULT_SETTINGS = { blockShorts: true, blockedChannels: [], blockedSites: [] };
+// apiSites / apiChannels: what the blacklist API last returned, blocked on top
+// of blockedSites / blockedChannels. apiBase: the API's base URL ("" = not
+// set up; an older install with only a key means DEFAULT_API_BASE).
+// apiSync: { at?, error? } of the last fetch. The API key itself isn't kept
+// here (content scripts can read this storage): see secret-store.js.
+const DEFAULT_SETTINGS = {
+  blockShorts: true,
+  blockedChannels: [],
+  blockedSites: [],
+  apiBase: "",
+  apiSites: [],
+  apiChannels: [],
+  apiSync: {},
+};
+
+// The API serves {base}/blocked-websites and {base}/blocked-channels. See
+// docs/api.md for the response format.
+const DEFAULT_API_BASE = "https://livia.thedatasender.space/api/ext";
+const API_DOCS_URL = "https://github.com/kazakevic/pandasafe/blob/main/docs/api.md";
+
+// "https://host/path/" -> "https://host/path". Null unless it's https (or
+// plain http to this machine, for testing a local server).
+const parseApiBase = (input) => {
+  let url;
+  try {
+    url = new URL(String(input ?? "").trim());
+  } catch {
+    return null;
+  }
+  const local = /^(?:localhost|127\.0\.0\.1|\[::1\])$/.test(url.hostname);
+  if (url.protocol !== "https:" && !(url.protocol === "http:" && local)) return null;
+  if (url.username || url.password || url.search || url.hash) return null;
+  return `${url.origin}${url.pathname.replace(/\/+$/, "")}`;
+};
 
 const getSettings = () => chrome.storage.local.get(DEFAULT_SETTINGS);
 
@@ -64,3 +97,12 @@ const parseSite = (input) => {
 // The entry in `sites` that blocks `host` (the site itself or a parent
 // domain of it), or undefined.
 const siteMatch = (host, sites) => sites.find((site) => host === site || host.endsWith(`.${site}`));
+
+// Everything that's blocked: the user's own list plus the API's.
+const allBlockedSites = ({ blockedSites, apiSites }) => [...new Set([...blockedSites, ...apiSites])];
+
+// The user's own entry wins over the API's for the same handle.
+const allBlockedChannels = ({ blockedChannels, apiChannels }) => {
+  const own = new Set(blockedChannels.map((c) => handleKey(c.handle)));
+  return [...blockedChannels, ...apiChannels.filter((c) => !own.has(handleKey(c.handle)))];
+};

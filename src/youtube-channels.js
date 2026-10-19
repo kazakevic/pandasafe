@@ -1,4 +1,4 @@
-// Blocks the channels on the user's blacklist (by @handle):
+// Blocks the channels on the user's blacklist and the API's (by @handle):
 // - channel pages (/@handle/...) redirect home; full page loads are already
 //   redirected by the dynamic DNR rules from background.js, this covers SPA
 //   navigation;
@@ -127,16 +127,17 @@ const learnNames = () => {
     if (avatar) learn(avatar.getAttribute("href"), item.querySelector(ITEM_CHANNEL_NAME)?.textContent.trim());
   }
   if (!learned.size) return;
-  getSettings().then(({ blockedChannels: stored }) =>
-    chrome.storage.local.set({
-      blockedChannels: stored.map((c) => (c.name ? c : { ...c, name: learned.get(handleKey(c.handle)) })),
-    }),
+  const withNames = (list) => list.map((c) => (c.name ? c : { ...c, name: learned.get(handleKey(c.handle)) }));
+  getSettings().then(({ blockedChannels: own, apiChannels }) =>
+    chrome.storage.local.set({ blockedChannels: withNames(own), apiChannels: withNames(apiChannels) }),
   );
 };
 
-getSettings().then((settings) => applyChannels(settings.blockedChannels));
-chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === "local" && changes.blockedChannels) applyChannels(changes.blockedChannels.newValue ?? []);
+getSettings().then((settings) => applyChannels(allBlockedChannels(settings)));
+chrome.storage.onChanged.addListener(async (changes, area) => {
+  if (area === "local" && (changes.blockedChannels || changes.apiChannels)) {
+    applyChannels(allBlockedChannels(await getSettings()));
+  }
 });
 
 // The popup asks which channel the tab is showing, for "Block this channel".

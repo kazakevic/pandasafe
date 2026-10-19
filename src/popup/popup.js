@@ -12,6 +12,7 @@ const blockCurrent = $("block-current");
 const itemTemplate = $("channel-item");
 
 let channels = [];
+let apiChannels = [];
 let currentChannel = null;
 
 const setStatus = (text, isError = false) => {
@@ -19,7 +20,9 @@ const setStatus = (text, isError = false) => {
   status.classList.toggle("error", isError);
 };
 
-const isBlocked = (handle) => channels.some((c) => handleKey(c.handle) === handleKey(handle));
+const sameHandle = (handle) => (c) => handleKey(c.handle) === handleKey(handle);
+const allChannels = () => allBlockedChannels({ blockedChannels: channels, apiChannels });
+const isBlocked = (handle) => allChannels().some(sameHandle(handle));
 
 const renderAvatar = (el, channel) => {
   el.replaceChildren();
@@ -35,21 +38,29 @@ const renderAvatar = (el, channel) => {
   }
 };
 
+// Like the sites: the user's own channels first, API channels tagged and
+// without a remove button unless they're on the user's list too.
 const render = () => {
+  const all = allChannels();
   list.replaceChildren(
-    ...channels.map((channel) => {
+    ...all.map((channel) => {
       const item = itemTemplate.content.firstElementChild.cloneNode(true);
       renderAvatar(item.querySelector(".avatar"), channel);
       item.querySelector(".channel-name").textContent = channel.name ?? channel.handle;
       item.querySelector(".channel-handle").textContent = channel.name ? channel.handle : "";
+      item.querySelector(".tag").hidden = !apiChannels.some(sameHandle(channel.handle));
       const remove = item.querySelector(".remove");
-      remove.setAttribute("aria-label", `Unblock ${channel.name ?? channel.handle}`);
-      remove.addEventListener("click", () => removeChannel(channel.handle));
+      if (channels.some(sameHandle(channel.handle))) {
+        remove.setAttribute("aria-label", `Unblock ${channel.name ?? channel.handle}`);
+        remove.addEventListener("click", () => removeChannel(channel.handle));
+      } else {
+        remove.remove();
+      }
       return item;
     }),
   );
-  empty.hidden = channels.length > 0;
-  count.textContent = channels.length;
+  empty.hidden = all.length > 0;
+  count.textContent = all.length;
 
   const showSuggestion = currentChannel?.handle && !isBlocked(currentChannel.handle);
   blockCurrent.hidden = !showSuggestion;
@@ -83,7 +94,8 @@ const lookupChannel = async (handle) => {
 
 const addChannel = async (handle, knownName) => {
   if (isBlocked(handle)) {
-    setStatus(`${handle} is already blocked.`);
+    const viaApi = !channels.some(sameHandle(handle));
+    setStatus(`${handle} is already blocked${viaApi ? " by the API" : ""}.`);
     return false;
   }
   addButton.disabled = true;
@@ -104,7 +116,8 @@ const addChannel = async (handle, knownName) => {
 const removeChannel = async (handle) => {
   const { blockedChannels } = await getSettings();
   await saveChannels(blockedChannels.filter((c) => handleKey(c.handle) !== handleKey(handle)));
-  setStatus(`Unblocked ${handle}.`);
+  const viaApi = apiChannels.some(sameHandle(handle));
+  setStatus(viaApi ? `Removed ${handle} from your list. The API still blocks it.` : `Unblocked ${handle}.`);
 };
 
 form.addEventListener("submit", async (event) => {
@@ -138,6 +151,20 @@ chrome.storage.onChanged.addListener((changes, area) => {
     sites = changes.blockedSites.newValue ?? [];
     renderSites();
   }
+  if (changes.apiSites) {
+    apiSites = changes.apiSites.newValue ?? [];
+    renderSites();
+    renderApi();
+  }
+  if (changes.apiChannels) {
+    apiChannels = changes.apiChannels.newValue ?? [];
+    render();
+    renderApi();
+  }
+  if (changes.apiSync) {
+    apiSync = changes.apiSync.newValue ?? {};
+    renderApi();
+  }
 });
 
 // Ask the YouTube tab which channel it's showing, for the one-click button.
@@ -165,7 +192,10 @@ const blockSite = $("block-site");
 const siteTemplate = $("site-item");
 
 let sites = [];
+let apiSites = [];
 let currentSite = null;
+
+const allSites = () => allBlockedSites({ blockedSites: sites, apiSites });
 
 const setSiteStatus = (text, isError = false) => {
   siteStatus.textContent = text;
@@ -180,22 +210,30 @@ const faviconUrl = (site) => {
   return url.href;
 };
 
+// The user's own sites first. API sites are tagged and can't be removed
+// here; a site on both lists keeps its remove button (it stays blocked).
 const renderSites = () => {
+  const all = allSites();
   siteList.replaceChildren(
-    ...sites.map((site) => {
+    ...all.map((site) => {
       const item = siteTemplate.content.firstElementChild.cloneNode(true);
       item.querySelector(".favicon img").src = faviconUrl(site);
       item.querySelector(".channel-name").textContent = site;
+      item.querySelector(".tag").hidden = !apiSites.includes(site);
       const remove = item.querySelector(".remove");
-      remove.setAttribute("aria-label", `Unblock ${site}`);
-      remove.addEventListener("click", () => removeSite(site));
+      if (sites.includes(site)) {
+        remove.setAttribute("aria-label", `Unblock ${site}`);
+        remove.addEventListener("click", () => removeSite(site));
+      } else {
+        remove.remove();
+      }
       return item;
     }),
   );
-  siteEmpty.hidden = sites.length > 0;
-  siteCount.textContent = sites.length;
+  siteEmpty.hidden = all.length > 0;
+  siteCount.textContent = all.length;
 
-  const showSuggestion = currentSite && !siteMatch(currentSite, sites);
+  const showSuggestion = currentSite && !siteMatch(currentSite, all);
   blockSite.hidden = !showSuggestion;
   if (showSuggestion) $("block-site-name").textContent = currentSite;
 };
@@ -205,14 +243,15 @@ const listText = (items) => items.join(", ");
 // Adds each site unless an entry already covers it. A new parent domain
 // replaces the subdomains it now covers. Returns false if nothing was added.
 const addSites = async (entries) => {
-  const { blockedSites } = await getSettings();
+  const { blockedSites, apiSites: fromApi } = await getSettings();
   let next = blockedSites;
   const added = [];
   const covered = [];
   for (const site of entries) {
-    const by = siteMatch(site, next);
+    const by = siteMatch(site, next) ?? siteMatch(site, fromApi);
     if (by) {
-      covered.push(by === site ? site : `${site} (via ${by})`);
+      const via = [by === site ? "" : `via ${by}`, next.includes(by) ? "" : "from the API"].filter(Boolean);
+      covered.push(via.length ? `${site} (${via.join(", ")})` : site);
       continue;
     }
     next = [site, ...next.filter((entry) => !siteMatch(entry, [site]))];
@@ -228,9 +267,10 @@ const addSites = async (entries) => {
 };
 
 const removeSite = async (site) => {
-  const { blockedSites } = await getSettings();
+  const { blockedSites, apiSites: fromApi } = await getSettings();
   await chrome.storage.local.set({ blockedSites: blockedSites.filter((entry) => entry !== site) });
-  setSiteStatus(`Unblocked ${site}.`);
+  const by = siteMatch(site, fromApi);
+  setSiteStatus(by ? `Removed ${site} from your list. The API still blocks it.` : `Unblocked ${site}.`);
 };
 
 // Several sites can be pasted at once, separated by spaces, commas or lines.
@@ -276,12 +316,124 @@ const loadCurrentSite = (tab) => {
   renderSites();
 };
 
+// --- Blacklist API ---
+
+const apiForm = $("api-form");
+const apiBaseInput = $("api-base");
+const apiKeyInput = $("api-key");
+const apiReveal = $("api-reveal");
+const apiSave = $("api-save");
+const apiStatus = $("api-status");
+const apiRefresh = $("api-refresh");
+const apiRemove = $("api-remove");
+
+let apiSync = {};
+let apiBase = "";
+let hasApiKey = false;
+
+$("api-docs").href = API_DOCS_URL;
+apiBaseInput.placeholder = DEFAULT_API_BASE;
+
+// Installs from before the base URL setting only stored a key.
+const effectiveApiBase = () => apiBase || (hasApiKey ? DEFAULT_API_BASE : "");
+
+const setApiStatus = (text, isError = false) => {
+  apiStatus.textContent = text;
+  apiStatus.classList.toggle("error", isError);
+};
+
+const timeAgo = (at) => {
+  const minutes = Math.round((Date.now() - at) / 60000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes} min ago`;
+  return new Date(at).toLocaleString([], { dateStyle: "short", timeStyle: "short" });
+};
+
+const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+// The saved key is never read back into the page: the field only takes a
+// new one.
+const renderApi = () => {
+  const base = effectiveApiBase();
+  if (document.activeElement !== apiBaseInput) apiBaseInput.value = base;
+  apiKeyInput.placeholder = hasApiKey ? "Key saved · enter a new one to replace it" : "API key (optional)";
+  apiRefresh.hidden = !base;
+  apiRemove.hidden = !base;
+  let text = "";
+  if (base) {
+    const counts = `${plural(apiSites.length, "site")} and ${plural(apiChannels.length, "channel")}`;
+    if (apiSync.error) text = `${apiSync.error}${apiSync.at ? ` Still blocking the ${counts} from ${timeAgo(apiSync.at)}.` : ""}`;
+    else if (apiSync.at) text = `Blocking ${counts} from the API, updated ${timeAgo(apiSync.at)}.`;
+    else text = "Fetching…";
+  }
+  setApiStatus(text, Boolean(base && apiSync.error));
+};
+
+const syncApi = async () => {
+  apiRefresh.disabled = true;
+  setApiStatus("Fetching…");
+  try {
+    await chrome.runtime.sendMessage({ type: "pandasafe:sync-api" });
+  } finally {
+    apiRefresh.disabled = false;
+    renderApi();
+  }
+};
+
+// A saved key belongs to the server it was entered for: moving to another
+// host drops it rather than sending it there.
+apiForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const base = apiBaseInput.value.trim() ? parseApiBase(apiBaseInput.value) : DEFAULT_API_BASE;
+  if (!base) {
+    setApiStatus("Enter an https:// URL, like https://example.com/api.", true);
+    apiBaseInput.focus();
+    return;
+  }
+  const key = apiKeyInput.value.trim();
+  const previous = effectiveApiBase();
+  const movedHost = previous && new URL(previous).origin !== new URL(base).origin;
+  apiSave.disabled = true;
+  if (key || (movedHost && hasApiKey)) await setApiKey(key);
+  hasApiKey = Boolean(key) || (hasApiKey && !movedHost);
+  apiBase = base;
+  await chrome.storage.local.set({ apiBase: base });
+  apiKeyInput.value = "";
+  apiSave.disabled = false;
+  await syncApi();
+});
+
+apiBaseInput.addEventListener("input", () => apiStatus.classList.contains("error") && setApiStatus(""));
+
+apiRemove.addEventListener("click", async () => {
+  await setApiKey("");
+  hasApiKey = false;
+  apiBase = "";
+  await chrome.storage.local.set({ apiBase: "" });
+  await syncApi(); // clears the API's sites and channels
+});
+
+apiRefresh.addEventListener("click", syncApi);
+
+apiReveal.addEventListener("click", () => {
+  const show = apiKeyInput.type === "password";
+  apiKeyInput.type = show ? "text" : "password";
+  apiReveal.setAttribute("aria-pressed", String(show));
+  apiReveal.setAttribute("aria-label", show ? "Hide key" : "Show key");
+});
+
 getSettings().then(async (settings) => {
   shortsToggle.checked = settings.blockShorts;
   channels = settings.blockedChannels;
+  apiChannels = settings.apiChannels;
   sites = settings.blockedSites;
+  apiSites = settings.apiSites;
+  apiSync = settings.apiSync;
+  apiBase = settings.apiBase;
+  hasApiKey = Boolean(await getApiKey());
   render();
   renderSites();
+  renderApi();
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   loadCurrentSite(tab);
   loadCurrentChannel(tab);

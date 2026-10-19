@@ -26,7 +26,7 @@ back.addEventListener("click", async () => {
 });
 
 // Unblocked while this page is open: carry on to the page that was asked for.
-chrome.storage.onChanged.addListener((changes, area) => {
-  if (area !== "local" || !changes.blockedSites || !blockedUrl) return;
-  if (!siteMatch(blockedUrl.hostname, changes.blockedSites.newValue ?? [])) location.replace(blockedUrl.href);
+chrome.storage.onChanged.addListener(async (changes, area) => {
+  if (area !== "local" || !(changes.blockedSites || changes.apiSites) || !blockedUrl) return;
+  if (!siteMatch(blockedUrl.hostname, allBlockedSites(await getSettings()))) location.replace(blockedUrl.href);
 });

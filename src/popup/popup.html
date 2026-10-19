@@ -81,6 +81,54 @@
         <ul class="channels" id="site-list"></ul>
         <p class="empty" id="site-empty">No websites blocked yet.</p>
       </section>
+
+      <section class="card">
+        <div class="section-head">
+          <h2>Blacklist API</h2>
+          <button type="button" class="link" id="api-refresh" hidden>Refresh</button>
+        </div>
+        <p class="setting-hint">
+          Websites and channels from the API are blocked on top of your own lists and refreshed every 15 minutes.
+          <a class="link" id="api-docs" href="#" target="_blank" rel="noopener">Build your own</a>
+        </p>
+
+        <form class="add api-form" id="api-form" autocomplete="off">
+          <input
+            type="url"
+            id="api-base"
+            placeholder="Base URL"
+            aria-label="Base URL"
+            spellcheck="false"
+            autocapitalize="off"
+          />
+          <span class="secret">
+            <input
+              type="password"
+              id="api-key"
+              placeholder="API key (optional)"
+              aria-label="API key"
+              spellcheck="false"
+              autocapitalize="off"
+            />
+            <button type="button" class="reveal" id="api-reveal" aria-label="Show key" aria-pressed="false">
+              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                <path
+                  d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linejoin="round"
+                />
+                <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2" />
+                <path class="reveal-slash" d="M4 4l16 16" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+              </svg>
+            </button>
+          </span>
+          <button type="submit" id="api-save">Save</button>
+        </form>
+        <p class="status" id="api-status" role="status" aria-live="polite"></p>
+        <button type="button" class="link danger" id="api-remove" hidden>Disconnect</button>
+      </section>
     </main>
 
     <template id="channel-item">
@@ -90,6 +138,7 @@
           <span class="channel-name"></span>
           <span class="channel-handle"></span>
         </span>
+        <span class="tag" title="Blocked by the blacklist API" hidden>API</span>
         <button type="button" class="remove" title="Unblock">
           <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
             <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
@@ -104,6 +153,7 @@
         <span class="channel-text">
           <span class="channel-name"></span>
         </span>
+        <span class="tag" title="Blocked by the blacklist API" hidden>API</span>
         <button type="button" class="remove" title="Unblock">
           <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
             <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
@@ -113,6 +163,7 @@
     </template>
 
     <script src="../shared.js"></script>
+    <script src="../secret-store.js"></script>
     <script src="popup.js"></script>
   </body>
 </html>
